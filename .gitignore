@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Backend runtime artifacts
+backend/api/logistics.db
+backend/api/*.pyd
+backend/api/*.so
+backend/api/*.dll
+
+# Native build output
+backend/engine/build/
+
+# Editor and local tooling
+.vscode/
+.codex-runtime/
+
+# OS noise
+.DS_Store
+Thumbs.db
