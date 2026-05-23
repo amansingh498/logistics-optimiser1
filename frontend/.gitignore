@@ -143,7 +143,9 @@ backend/api/*.db
 backend/api/*.pyd
 
 # =========================================================
-# Optional: generated test outputs
+# Optional: generated test output
 # =========================================================
 *.coverage
 htmlcov/
+
+error.txt
