@@ -1,14 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Node, VRPSolution } from '../types';
+import { Node, Vehicle, VRPSolution } from '../types';
+import { getVehicleColor } from '../utils/vehicleColors';
 
 interface RouteMapProps {
   nodes: Node[];
+  vehicles: Vehicle[];
   solution: VRPSolution | null;
 }
-
-const routeColors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2'];
 
 function markerClass(type: Node['type']) {
   if (type === 'DEPOT') return 'map-marker depot';
@@ -26,7 +26,7 @@ function markerIcon(node: Node) {
   });
 }
 
-export const RouteMap: React.FC<RouteMapProps> = ({ nodes, solution }) => {
+export const RouteMap: React.FC<RouteMapProps> = ({ nodes, vehicles, solution }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.LayerGroup | null>(null);
@@ -66,6 +66,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ nodes, solution }) => {
       (node) => Number.isFinite(node.lat) && Number.isFinite(node.lon)
     );
     const nodeById = new Map(validNodes.map((node) => [node.id, node]));
+    const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
     const bounds = L.latLngBounds([]);
 
     validNodes.forEach((node) => {
@@ -81,7 +82,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ nodes, solution }) => {
     });
 
     if (solution) {
-      solution.routes.forEach((route, index) => {
+      solution.routes.forEach((route) => {
         const routePoints = route.stops
           .map((stopId) => nodeById.get(stopId))
           .filter((node): node is Node => Boolean(node))
@@ -89,14 +90,16 @@ export const RouteMap: React.FC<RouteMapProps> = ({ nodes, solution }) => {
 
         if (routePoints.length < 2) return;
 
-        const color = routeColors[index % routeColors.length];
+        const color = getVehicleColor(route.vehicle_id);
+        const vehicle = vehicleById.get(route.vehicle_id);
         L.polyline(routePoints, {
           color,
-          weight: 4,
+          weight: 5,
           opacity: route.feasible ? 0.9 : 0.45,
         })
           .bindPopup(`
-            <strong>Vehicle ${route.vehicle_id}</strong><br/>
+            <strong style="color: ${color}">${vehicle?.name || `Vehicle ${route.vehicle_id}`}</strong><br/>
+            Vehicle ID: ${route.vehicle_id}<br/>
             Distance: ${route.total_distance_km.toFixed(2)} km<br/>
             Load: ${route.load.toFixed(0)}<br/>
             Feasible: ${route.feasible ? 'Yes' : 'No'}
@@ -120,6 +123,15 @@ export const RouteMap: React.FC<RouteMapProps> = ({ nodes, solution }) => {
           <span><i className="legend-dot depot"></i>Depot</span>
           <span><i className="legend-dot warehouse"></i>Warehouse</span>
           <span><i className="legend-dot customer"></i>Customer</span>
+          {solution?.routes.map((route) => {
+            const vehicle = vehicles.find((item) => item.id === route.vehicle_id);
+            return (
+              <span key={route.vehicle_id}>
+                <i className="legend-line" style={{ background: getVehicleColor(route.vehicle_id) }}></i>
+                {vehicle?.name || `Vehicle ${route.vehicle_id}`}
+              </span>
+            );
+          })}
         </div>
       </div>
       <div ref={containerRef} className="route-map"></div>

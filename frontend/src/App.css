@@ -1,5 +1,6 @@
 :root {
   --sidebar-width: 280px;
+  --primary-rgb: 15 118 110;
   --primary: #0f766e;
   --primary-hover: #115e59;
   --primary-soft: #ccfbf1;
@@ -15,7 +16,9 @@
   --border: #d9dee7;
   --border-strong: #c4cad4;
   --radius: 8px;
-  --shadow: 0 12px 30px rgb(15 23 42 / 0.08);
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-strong: rgb(255 255 255 / 0.9);
+  --shadow: 0 18px 45px rgb(15 23 42 / 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -23,8 +26,6 @@
 body {
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--text-main);
-  background: var(--bg-main);
   overflow: hidden;
 }
 
@@ -38,17 +39,49 @@ select {
   display: flex;
   width: 100vw;
   height: 100vh;
+  color: var(--text-main);
+  background:
+    linear-gradient(135deg, rgb(15 118 110 / 0.14), transparent 32%),
+    linear-gradient(315deg, rgb(37 99 235 / 0.12), transparent 34%),
+    var(--bg-main);
+}
+
+.app-container[data-theme="dark"] {
+  --primary-rgb: 45 212 191;
+  --primary: #2dd4bf;
+  --primary-hover: #5eead4;
+  --primary-soft: rgb(45 212 191 / 0.16);
+  --accent: #60a5fa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #f87171;
+  --bg-main: #08111f;
+  --bg-panel: rgb(15 23 42 / 0.74);
+  --bg-muted: rgb(30 41 59 / 0.72);
+  --text-main: #f8fafc;
+  --text-muted: #a7b4c6;
+  --border: rgb(148 163 184 / 0.22);
+  --border-strong: rgb(148 163 184 / 0.38);
+  --glass-bg: rgb(15 23 42 / 0.66);
+  --glass-strong: rgb(15 23 42 / 0.84);
+  --shadow: 0 24px 60px rgb(0 0 0 / 0.34);
+  background:
+    linear-gradient(135deg, rgb(45 212 191 / 0.13), transparent 31%),
+    linear-gradient(315deg, rgb(96 165 250 / 0.16), transparent 34%),
+    var(--bg-main);
 }
 
 .sidebar {
   width: var(--sidebar-width);
-  background: #fbfcfd;
+  background: var(--glass-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   transition: width 0.2s ease;
   z-index: 40;
+  backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 12px 0 34px rgb(15 23 42 / 0.08);
 }
 
 .sidebar.collapsed {
@@ -116,9 +149,9 @@ select {
 }
 
 .nav-button.active {
-  border-color: #99f6e4;
+  border-color: rgb(var(--primary-rgb) / 0.36);
   background: var(--primary-soft);
-  color: #134e4a;
+  color: var(--text-main);
 }
 
 .scenario-summary {
@@ -134,7 +167,8 @@ select {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: white;
+  background: var(--glass-strong);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.06);
 }
 
 .scenario-summary span,
@@ -163,7 +197,7 @@ select {
 
 .top-toolbar {
   min-height: 64px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--glass-bg);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -174,14 +208,32 @@ select {
   top: 0;
   z-index: 30;
   flex-shrink: 0;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(18px) saturate(135%);
+  box-shadow: 0 12px 34px rgb(15 23 42 / 0.08);
 }
 
-.toolbar-group {
+.top-toolbar > .toolbar-left,
+.top-toolbar > .toolbar-right {
+  position: relative;
+  z-index: 2;
+}
+
+.toolbar-group,
+.toolbar-left,
+.toolbar-right {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.toolbar-left,
+.toolbar-right {
+  min-width: 132px;
+}
+
+.toolbar-right {
+  justify-content: flex-end;
 }
 
 .toolbar-separator {
@@ -201,7 +253,24 @@ select {
   font-weight: 750;
 }
 
+.toolbar-product-name {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: transparent;
+  background: linear-gradient(90deg, var(--primary), var(--accent), var(--warning));
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 10px 30px rgb(var(--primary-rgb) / 0.2);
+}
+
 .toolbar-toggle-btn,
+.theme-toggle-btn,
 .btn-primary,
 .btn-secondary {
   min-height: 38px;
@@ -216,12 +285,32 @@ select {
 
 .toolbar-toggle-btn {
   min-width: 52px;
-  background: white;
+  background: var(--glass-strong);
   border-color: var(--border);
   color: var(--text-muted);
 }
 
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--glass-strong);
+  border-color: var(--border);
+  color: var(--text-main);
+}
+
+.theme-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .toolbar-toggle-btn:hover,
+.theme-toggle-btn:hover,
 .btn-secondary:hover {
   border-color: var(--border-strong);
   background: var(--bg-muted);
@@ -230,7 +319,8 @@ select {
 
 .btn-primary {
   background: var(--primary);
-  color: white;
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgb(var(--primary-rgb) / 0.24);
 }
 
 .btn-primary:hover {
@@ -244,7 +334,7 @@ select {
 }
 
 .btn-secondary {
-  background: white;
+  background: var(--glass-strong);
   color: var(--text-main);
   border-color: var(--border);
 }
@@ -258,7 +348,7 @@ select {
   padding: 8px 11px;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: white;
+  background: var(--glass-strong);
   color: var(--text-main);
   font-size: 0.875rem;
   outline: none;
@@ -269,7 +359,7 @@ select {
 .node-form input:focus,
 .node-form select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgb(15 118 110 / 0.14);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.14);
 }
 
 .scenario-input {
@@ -313,10 +403,18 @@ select {
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: white;
+  background: var(--glass-strong);
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.optimize-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .map-panel {
@@ -325,7 +423,7 @@ select {
   position: relative;
   background: #dde5ea;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow);
   margin-bottom: 14px;
@@ -360,11 +458,12 @@ select {
 
 .route-map-header h2,
 .route-map-legend {
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--glass-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   pointer-events: auto;
+  backdrop-filter: blur(14px) saturate(130%);
 }
 
 .route-map-header h2 {
@@ -393,6 +492,13 @@ select {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-line {
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
   display: inline-block;
 }
 
@@ -426,6 +532,18 @@ select {
   display: block;
 }
 
+.app-container[data-theme="dark"] .leaflet-tile {
+  filter: brightness(0.72) contrast(1.08) saturate(0.82);
+}
+
+.app-container[data-theme="dark"] .leaflet-control-zoom a,
+.app-container[data-theme="dark"] .leaflet-popup-content-wrapper,
+.app-container[data-theme="dark"] .leaflet-popup-tip {
+  background: var(--glass-strong);
+  color: var(--text-main);
+  border-color: var(--border);
+}
+
 .scenario-page {
   width: 100%;
   min-height: calc(100vh - 64px);
@@ -436,6 +554,19 @@ select {
   color: var(--text-muted);
   font-size: 0.84rem;
   margin-bottom: 14px;
+}
+
+.matrix-note {
+  display: inline-flex;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--glass-strong);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
 }
 
 .scenario-page-header {
@@ -482,7 +613,9 @@ select {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: white;
+  background: var(--glass-bg);
+  box-shadow: 0 14px 32px rgb(15 23 42 / 0.08);
+  backdrop-filter: blur(14px) saturate(130%);
 }
 
 .scenario-kpis span,
@@ -514,6 +647,8 @@ select {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: 0 14px 34px rgb(15 23 42 / 0.08);
+  backdrop-filter: blur(16px) saturate(130%);
 }
 
 .workspace-section {
@@ -525,7 +660,7 @@ select {
   padding: 16px 18px;
   border: 0;
   border-bottom: 1px solid var(--border);
-  background: white;
+  background: var(--glass-strong);
   color: var(--text-main);
   cursor: pointer;
   display: flex;
@@ -651,18 +786,18 @@ select {
 }
 
 .badge-depot {
-  background: #dbeafe;
-  color: #1e40af;
+  background: rgb(37 99 235 / 0.14);
+  color: var(--accent);
 }
 
 .badge-customer {
-  background: #fef3c7;
-  color: #92400e;
+  background: rgb(245 158 11 / 0.16);
+  color: var(--warning);
 }
 
 .badge-warehouse {
-  background: #dcfce7;
-  color: #166534;
+  background: rgb(34 197 94 / 0.16);
+  color: var(--success);
 }
 
 .btn-icon-danger {
@@ -678,8 +813,8 @@ select {
 }
 
 .btn-icon-danger:hover {
-  border-color: #fecaca;
-  background: #fef2f2;
+  border-color: rgb(248 113 113 / 0.36);
+  background: rgb(248 113 113 / 0.12);
   color: var(--error);
 }
 
@@ -714,15 +849,15 @@ select {
   flex-shrink: 0;
   padding: 5px 8px;
   border-radius: 999px;
-  background: #dcfce7;
-  color: #166534;
+  background: rgb(34 197 94 / 0.16);
+  color: var(--success);
   font-size: 0.72rem;
   font-weight: 850;
 }
 
 .validation-status.invalid {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgb(248 113 113 / 0.16);
+  color: var(--error);
 }
 
 .validation-summary {
@@ -778,7 +913,7 @@ select {
 .metric-item {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: white;
+  background: var(--glass-strong);
   padding: 14px;
 }
 
@@ -801,7 +936,7 @@ select {
 .route-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: white;
+  background: var(--glass-strong);
   padding: 16px;
 }
 
@@ -908,7 +1043,6 @@ td {
     min-height: 100vh;
   }
 
-  .top-toolbar,
   .scenario-page-header {
     align-items: stretch;
     flex-direction: column;
@@ -933,6 +1067,29 @@ td {
 
   .scenario-page {
     padding: 16px;
+  }
+
+  .top-toolbar {
+    min-height: 58px;
+    padding: 10px 14px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    min-width: 58px;
+  }
+
+  .toolbar-product-name {
+    font-size: 1.12rem;
+  }
+
+  .theme-toggle-btn {
+    width: 38px;
+    padding: 9px;
+  }
+
+  .theme-toggle-btn span:last-child {
+    display: none;
   }
 
   .scenario-grid,

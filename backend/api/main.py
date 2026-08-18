@@ -14,6 +14,9 @@ import json
 import time
 import math
 import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
 import zipfile
 import xml.etree.ElementTree as ET
 
@@ -194,6 +197,11 @@ class ConfigSaveRequest(BaseModel):
 class ScenarioValidationRequest(BaseModel):
     nodes: List[NodeModel]
     vehicles: List[VehicleModel]
+
+class DistanceMatrixRequest(BaseModel):
+    nodes: List[NodeModel]
+    provider: str = "osrm"
+    fallback: bool = True
 
 class ImportFileModel(BaseModel):
     filename: str
@@ -426,6 +434,79 @@ def _validate_scenario(nodes: List[NodeModel], vehicles: List[VehicleModel]) -> 
         },
     }
 
+def _straight_line_distance_km(from_node: NodeModel, to_node: NodeModel) -> float:
+    lat_km = (from_node.lat - to_node.lat) * 111.32
+    avg_lat_rad = math.radians((from_node.lat + to_node.lat) / 2)
+    lon_km = (from_node.lon - to_node.lon) * 111.32 * math.cos(avg_lat_rad)
+    return math.sqrt((lat_km * lat_km) + (lon_km * lon_km))
+
+def _straight_line_edges(nodes: List[NodeModel]) -> List[Dict[str, Any]]:
+    edges: List[Dict[str, Any]] = []
+    edge_id = 0
+    for from_node in nodes:
+        for to_node in nodes:
+            if from_node.id == to_node.id:
+                continue
+            distance_km = _straight_line_distance_km(from_node, to_node)
+            edges.append({
+                "id": edge_id,
+                "from_node": from_node.id,
+                "to_node": to_node.id,
+                "distance_km": distance_km,
+                "time_min": distance_km * 1.5,
+            })
+            edge_id += 1
+    return edges
+
+def _osrm_distance_matrix(nodes: List[NodeModel]) -> List[Dict[str, Any]]:
+    if len(nodes) > int(os.environ.get("OSRM_MAX_LOCATIONS", "50")):
+        raise ValueError("OSRM matrix requests are limited to 50 locations by default.")
+
+    base_url = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org").rstrip("/")
+    coordinates = ";".join(f"{node.lon:.7f},{node.lat:.7f}" for node in nodes)
+    query = urllib.parse.urlencode({"annotations": "distance,duration"})
+    url = f"{base_url}/table/v1/driving/{coordinates}?{query}"
+    request = urllib.request.Request(url, headers={"User-Agent": "logistics-optimiser/1.0"})
+
+    try:
+        with urllib.request.urlopen(request, timeout=float(os.environ.get("OSRM_TIMEOUT_SECONDS", "10"))) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise ValueError(f"OSRM request failed: {exc}") from exc
+
+    if payload.get("code") != "Ok":
+        raise ValueError(payload.get("message") or "OSRM did not return a usable matrix.")
+
+    distances = payload.get("distances")
+    durations = payload.get("durations")
+    if not isinstance(distances, list) or not isinstance(durations, list):
+        raise ValueError("OSRM response did not include distance and duration matrices.")
+
+    edges: List[Dict[str, Any]] = []
+    edge_id = 0
+    for from_index, from_node in enumerate(nodes):
+        for to_index, to_node in enumerate(nodes):
+            if from_node.id == to_node.id:
+                continue
+            distance_m = distances[from_index][to_index]
+            duration_s = durations[from_index][to_index]
+            if distance_m is None or duration_s is None:
+                fallback_distance = _straight_line_distance_km(from_node, to_node)
+                distance_km = fallback_distance
+                time_min = fallback_distance * 1.5
+            else:
+                distance_km = float(distance_m) / 1000
+                time_min = float(duration_s) / 60
+            edges.append({
+                "id": edge_id,
+                "from_node": from_node.id,
+                "to_node": to_node.id,
+                "distance_km": distance_km,
+                "time_min": time_min,
+            })
+            edge_id += 1
+    return edges
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -440,6 +521,33 @@ def health():
 @app.post("/validate-scenario")
 def validate_scenario(req: ScenarioValidationRequest):
     return _validate_scenario(req.nodes, req.vehicles)
+
+@app.post("/distance-matrix")
+def distance_matrix(req: DistanceMatrixRequest):
+    if len(req.nodes) < 2:
+        return {
+            "edges": [],
+            "provider": "none",
+            "warnings": ["At least two locations are required to build a distance matrix."],
+        }
+
+    provider = req.provider.strip().lower()
+    if provider not in {"osrm", "straight_line"}:
+        raise HTTPException(status_code=400, detail="provider must be osrm or straight_line")
+
+    if provider == "straight_line":
+        return {"edges": _straight_line_edges(req.nodes), "provider": "straight_line", "warnings": []}
+
+    try:
+        return {"edges": _osrm_distance_matrix(req.nodes), "provider": "osrm", "warnings": []}
+    except ValueError as exc:
+        if not req.fallback:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return {
+            "edges": _straight_line_edges(req.nodes),
+            "provider": "straight_line_fallback",
+            "warnings": [str(exc)],
+        }
 
 @app.post("/solve")
 def solve_vrp(req: SolverRequest):

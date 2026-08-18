@@ -50,6 +50,12 @@ export interface Edge {
   time_min: number;
 }
 
+export interface DistanceMatrixResult {
+  edges: Edge[];
+  provider: 'osrm' | 'straight_line' | 'straight_line_fallback' | 'none';
+  warnings: string[];
+}
+
 export interface Route {
   vehicle_id: number;
   stops: number[];

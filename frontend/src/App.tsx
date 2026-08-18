@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { Node, Vehicle, Edge, VRPSolution, ValidationReport } from './types';
-import { solveVRP, compareVRP, validateScenario } from './api/logistics';
+import { solveVRP, validateScenario, buildDistanceMatrix } from './api/logistics';
 import { saveConfig, loadConfig, listConfigs } from './api/db';
 import { NodeList } from './components/NodeList';
 import { VehicleList } from './components/VehicleList';
@@ -27,13 +27,17 @@ function App() {
   const [configName, setConfigName] = useState('Default Scenario');
   const [savedConfigs, setSavedConfigs] = useState<string[]>([]);
   const [solution, setSolution] = useState<VRPSolution | null>(null);
-  const [comparisonResults, setComparisonResults] = useState<VRPSolution[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
   const [resultsCollapsed, setResultsCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<'optimize' | 'scenario'>('optimize');
+  const [matrixStatus, setMatrixStatus] = useState('Road matrix not built yet');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = window.localStorage.getItem('routeforge-theme');
+    return savedTheme === 'dark' ? 'dark' : 'light';
+  });
   const demoPersistenceNotice = 'Demo mode: saved scenarios may reset whenever the free backend restarts.';
   const depotCount = nodes.filter((node) => node.type === 'DEPOT').length;
   const customerCount = nodes.filter((node) => node.type === 'CUSTOMER').length;
@@ -47,6 +51,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    window.localStorage.setItem('routeforge-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    setMatrixStatus('Road matrix not built yet');
     const timeoutId = window.setTimeout(() => {
       runValidation(false);
     }, 300);
@@ -85,8 +94,8 @@ function App() {
       setVehicles(data.vehicles);
       setConfigName(name);
       setSolution(null);
-      setComparisonResults(null);
       setValidationReport(null);
+      setMatrixStatus('Road matrix not built yet');
       setResultsCollapsed(false);
     } catch (error: any) {
       alert(`Load failed: ${error.message}`);
@@ -161,45 +170,70 @@ function App() {
     }
 
     setSolution(null);
-    setComparisonResults(null);
+    setMatrixStatus('Road matrix not built yet');
     if (data.warnings.length > 0) {
       alert(`Imported with warnings:\n${data.warnings.join('\n')}`);
     }
   };
 
-  const prepareSolveData = () => {
-    const depots = nodes.filter(n => n.type === 'DEPOT').map(n => n.id);
-    const customers = nodes.filter(n => n.type === 'CUSTOMER').map(n => n.id);
-    const warehouses = nodes.filter(n => n.type === 'WAREHOUSE').map(n => n.id);
-
+  const buildStraightLineEdges = () => {
     const dynamicEdges: Edge[] = [];
     let eid = 0;
     for (let i = 0; i < nodes.length; i++) {
       for (let j = 0; j < nodes.length; j++) {
         if (i === j) continue;
         const n1 = nodes[i], n2 = nodes[j];
-        const dist = Math.sqrt(Math.pow(n1.lat - n2.lat, 2) + Math.pow(n1.lon - n2.lon, 2)) * 111;
+        const latKm = (n1.lat - n2.lat) * 111.32;
+        const lonKm = (n1.lon - n2.lon) * 111.32 * Math.cos(((n1.lat + n2.lat) / 2) * Math.PI / 180);
+        const dist = Math.sqrt((latKm * latKm) + (lonKm * lonKm));
         dynamicEdges.push({ id: eid++, from_node: n1.id, to_node: n2.id, distance_km: dist, time_min: dist * 1.5 });
       }
     }
+    return dynamicEdges;
+  };
 
-    return { depots, customers, warehouses, dynamicEdges };
+  const prepareScenarioParts = () => {
+    const depots = nodes.filter(n => n.type === 'DEPOT').map(n => n.id);
+    const customers = nodes.filter(n => n.type === 'CUSTOMER').map(n => n.id);
+    const warehouses = nodes.filter(n => n.type === 'WAREHOUSE').map(n => n.id);
+
+    return { depots, customers, warehouses };
+  };
+
+  const prepareDistanceMatrix = async () => {
+    setMatrixStatus('Building road travel matrix...');
+    try {
+      const matrix = await buildDistanceMatrix(nodes);
+      if (matrix.provider === 'osrm') {
+        setMatrixStatus(`Using OSRM road travel matrix (${matrix.edges.length} directed edges)`);
+      } else if (matrix.provider === 'straight_line_fallback') {
+        setMatrixStatus(`Using estimated straight-line fallback (${matrix.edges.length} directed edges)`);
+      } else {
+        setMatrixStatus(`Using ${matrix.provider.replaceAll('_', ' ')} matrix (${matrix.edges.length} directed edges)`);
+      }
+      return matrix.edges;
+    } catch (error: any) {
+      const fallbackEdges = buildStraightLineEdges();
+      setMatrixStatus(`Using local straight-line fallback (${fallbackEdges.length} directed edges)`);
+      console.error(error);
+      return fallbackEdges;
+    }
   };
 
   const handleSolve = async () => {
-    const { depots, customers, warehouses, dynamicEdges } = prepareSolveData();
+    const { depots, customers, warehouses } = prepareScenarioParts();
     if (depots.length === 0 || customers.length === 0 || vehicles.length === 0) {
       return alert('Setup nodes and vehicles first!');
     }
 
     setLoading(true);
-    setComparisonResults(null);
     try {
       const report = await runValidation(false);
       if (report && !report.is_valid) {
         alert(`Fix validation errors before solving:\n${report.errors.join('\n')}`);
         return;
       }
+      const dynamicEdges = await prepareDistanceMatrix();
       const result = await solveVRP(nodes, dynamicEdges, vehicles, depots, customers, warehouses);
       setSolution(result);
     } catch (err: any) {
@@ -209,36 +243,9 @@ function App() {
     }
   };
 
-  const handleCompare = async () => {
-    const { depots, customers, warehouses, dynamicEdges } = prepareSolveData();
-    if (depots.length === 0 || customers.length === 0 || vehicles.length === 0) {
-      return alert('Setup nodes and vehicles first!');
-    }
-
-    setLoading(true);
-    setSolution(null);
-    try {
-      const report = await runValidation(false);
-      if (report && !report.is_valid) {
-        alert(`Fix validation errors before comparing:\n${report.errors.join('\n')}`);
-        return;
-      }
-      const results = await compareVRP(nodes, dynamicEdges, vehicles, depots, customers, warehouses);
-      setComparisonResults(results);
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="app-container">
+    <div className="app-container" data-theme={theme}>
       <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
-        <div className="sidebar-header">
-          <span>Aslan Operations</span>
-          <h1>Logistics Optimiser</h1>
-        </div>
         <div className="sidebar-content">
           <nav className="sidebar-nav">
             <button className={`nav-button ${activeView === 'optimize' ? 'active' : ''}`} onClick={() => setActiveView('optimize')}>
@@ -268,7 +275,7 @@ function App() {
 
       <main className="main-viewport">
         <header className="top-toolbar">
-          <div className="toolbar-group">
+          <div className="toolbar-left">
             <button
               className="toolbar-toggle-btn"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -276,30 +283,19 @@ function App() {
             >
               {isSidebarCollapsed ? 'Menu' : 'Hide'}
             </button>
-            <div className="toolbar-separator"></div>
-            <button className={activeView === 'optimize' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveView('optimize')}>
-              Optimize
-            </button>
-            <button className={activeView === 'scenario' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveView('scenario')}>
-              Scenario Setup
-            </button>
-            <div className="toolbar-scenario-name">{configName}</div>
           </div>
-
-          {activeView === 'optimize' && (
-            <div className="toolbar-group">
-              <button className="btn-secondary" onClick={() => runValidation(true)} disabled={validating}>
-                {validating ? 'Checking...' : 'Validate'}
-              </button>
-              <div className="toolbar-separator"></div>
-              <button className="btn-primary" onClick={handleSolve} disabled={loading} style={{ minWidth: '120px' }}>
-                {loading ? 'Solving...' : 'Solve VRP'}
-              </button>
-              <button className="btn-secondary" onClick={handleCompare} disabled={loading} style={{ minWidth: '120px' }}>
-                {loading ? 'Comparing...' : 'Compare DAA'}
-              </button>
-            </div>
-          )}
+          <div className="toolbar-product-name">RouteForge</div>
+          <div className="toolbar-right">
+            <button
+              className="theme-toggle-btn"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              <span className="theme-toggle-icon">{theme === 'dark' ? '☀' : '☾'}</span>
+              <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            </button>
+          </div>
         </header>
 
         {activeView === 'scenario' ? (
@@ -366,8 +362,16 @@ function App() {
                 <h2>Route Optimization</h2>
                 <p>{configName}</p>
               </div>
-              <div className="optimize-status">
-                {validationReport?.is_valid === false ? 'Needs scenario fixes' : 'Ready for analysis'}
+              <div className="optimize-header-actions">
+                <div className="optimize-status">
+                  {validationReport?.is_valid === false ? 'Needs scenario fixes' : 'Ready for analysis'}
+                </div>
+                <button className="btn-secondary" onClick={() => runValidation(true)} disabled={validating}>
+                  {validating ? 'Checking...' : 'Validate'}
+                </button>
+                <button className="btn-primary" onClick={handleSolve} disabled={loading}>
+                  {loading ? 'Optimizing...' : 'Optimize Routes'}
+                </button>
               </div>
             </div>
 
@@ -391,68 +395,23 @@ function App() {
             </div>
 
             <section className="map-panel">
-              <RouteMap nodes={nodes} solution={solution || (comparisonResults ? comparisonResults[1] : null)} />
+              <RouteMap nodes={nodes} vehicles={vehicles} solution={solution} />
             </section>
 
             <div className="runtime-note">{demoPersistenceNotice}</div>
+            <div className="matrix-note">{matrixStatus}</div>
 
             <ValidationPanel report={validationReport} />
 
-            {(solution || comparisonResults) && (
+            {solution && (
               <section className="results-container">
-                <div className="collapsible-header" onClick={() => setResultsCollapsed(!resultsCollapsed)} style={{ marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                  <h2 style={{ margin: 0 }}>Optimization Results & Analysis</h2>
+                <div className="collapsible-header" onClick={() => setResultsCollapsed(!resultsCollapsed)} style={{ marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                  <h2 style={{ margin: 0 }}>Optimization Results</h2>
                   <span className={`toggle-icon ${!resultsCollapsed ? 'open' : ''}`}>v</span>
                 </div>
 
                 <div className={`collapsible-content ${resultsCollapsed ? 'collapsed' : ''}`}>
-                  {solution && <SolutionPanel solution={solution} nodes={nodes} vehicles={vehicles} />}
-
-                  {comparisonResults && (
-                    <div className="comparison-view">
-                      <h3>DAA Algorithm Comparison</h3>
-                      <div className="table-container">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Metric</th>
-                              {comparisonResults.map((res, i) => (
-                                <th key={i}>{res.algorithm_used}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>Total Distance (km)</td>
-                              {comparisonResults.map((res, i) => (
-                                <td key={i}><strong>{res.total_distance_km.toFixed(2)}</strong></td>
-                              ))}
-                            </tr>
-                            <tr>
-                              <td>Total Time (min)</td>
-                              {comparisonResults.map((res, i) => (
-                                <td key={i}>{res.total_time_min.toFixed(2)}</td>
-                              ))}
-                            </tr>
-                            <tr>
-                              <td>Execution Time (ms)</td>
-                              {comparisonResults.map((res, i) => (
-                                <td key={i}>{res.execution_time_ms.toFixed(2)}</td>
-                              ))}
-                            </tr>
-                            <tr>
-                              <td>Improvement %</td>
-                              {comparisonResults.map((res, i) => (
-                                <td key={i} style={{ color: i > 0 ? 'var(--success)' : 'inherit' }}>
-                                  {i === 0 ? '-' : `${(((comparisonResults[0].total_distance_km - res.total_distance_km) / comparisonResults[0].total_distance_km) * 100).toFixed(1)}%`}
-                                </td>
-                              ))}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                  <SolutionPanel solution={solution} nodes={nodes} vehicles={vehicles} />
                 </div>
               </section>
             )}

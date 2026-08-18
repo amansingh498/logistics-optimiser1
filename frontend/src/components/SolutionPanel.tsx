@@ -1,5 +1,6 @@
 import React from 'react';
 import { VRPSolution, Node, Vehicle } from '../types';
+import { getVehicleColor } from '../utils/vehicleColors';
 
 interface SolutionPanelProps {
   solution: VRPSolution;
@@ -45,12 +46,13 @@ export const SolutionPanel: React.FC<SolutionPanelProps> = ({ solution, nodes, v
         {solution.routes.map((route, idx) => {
           const vehicle = getVehicle(route.vehicle_id);
           const loadPercentage = vehicle ? (route.load / vehicle.capacity) * 100 : 0;
+          const routeColor = getVehicleColor(route.vehicle_id);
           
           return (
-            <div key={idx} className="route-card" style={{borderLeft: '4px solid var(--primary)'}}>
+            <div key={idx} className="route-card" style={{borderLeft: `4px solid ${routeColor}`}}>
               <div className="route-header">
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                  <span className="route-vehicle-badge">VR</span>
+                  <span className="route-vehicle-badge" style={{background: routeColor, color: '#ffffff'}}>V{route.vehicle_id}</span>
                   <div>
                     <div style={{fontSize: '0.9rem', fontWeight: 700}}>{vehicle?.name || `Vehicle ${route.vehicle_id}`}</div>
                     <div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>ID: {route.vehicle_id}</div>
@@ -68,7 +70,7 @@ export const SolutionPanel: React.FC<SolutionPanelProps> = ({ solution, nodes, v
                   <span>Capacity Utilization</span>
                   <span>{route.load.toFixed(0)} / {vehicle?.capacity || '??'} units ({loadPercentage.toFixed(0)}%)</span>
                 </div>
-                <div style={{width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden'}}>
+                <div style={{width: '100%', height: '6px', background: 'var(--bg-muted)', borderRadius: '3px', overflow: 'hidden'}}>
                   <div style={{
                     width: `${Math.min(loadPercentage, 100)}%`, 
                     height: '100%', 
@@ -82,7 +84,7 @@ export const SolutionPanel: React.FC<SolutionPanelProps> = ({ solution, nodes, v
               <div className="route-timeline" style={{position: 'relative', paddingLeft: '20px'}}>
                 <div style={{
                   position: 'absolute', left: '4px', top: '10px', bottom: '10px', 
-                  width: '2px', background: '#e2e8f0', zIndex: 0
+                  width: '2px', background: routeColor, opacity: 0.35, zIndex: 0
                 }} />
                 
                 {route.stops.map((stopId, sIdx) => {
@@ -92,13 +94,13 @@ export const SolutionPanel: React.FC<SolutionPanelProps> = ({ solution, nodes, v
                     <div key={sIdx} style={{position: 'relative', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px'}}>
                       <div style={{
                         width: '10px', height: '10px', borderRadius: '50%', 
-                        background: isDepot ? 'var(--primary)' : 'white', 
-                        border: '2px solid var(--primary)',
+                        background: isDepot ? routeColor : 'var(--bg-panel)', 
+                        border: `2px solid ${routeColor}`,
                         position: 'relative', zIndex: 1, left: '-20px', flexShrink: 0
                       }} />
                       <div className="path-step" style={{
                         flex: 1, fontSize: '0.85rem', padding: '6px 10px',
-                        background: isDepot ? '#eff6ff' : 'white',
+                        background: isDepot ? 'var(--primary-soft)' : 'var(--glass-strong)',
                         border: '1px solid var(--border)',
                         borderRadius: '6px',
                         fontWeight: isDepot ? 700 : 400
