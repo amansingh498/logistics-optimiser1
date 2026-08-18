@@ -14,84 +14,92 @@ export const NodeList: React.FC<NodeListProps> = ({ nodes, onAdd, onRemove }) =>
     type: 'CUSTOMER',
     lat: 28.61,
     lon: 77.20,
-    demand: 10
+    demand: 10,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNode.name) return;
-    
+    if (!newNode.name?.trim()) return;
+
     const node: Node = {
       id: Math.max(0, ...nodes.map(n => n.id)) + 1,
-      name: newNode.name,
+      name: newNode.name.trim(),
       type: newNode.type as NodeType,
       lat: Number(newNode.lat),
       lon: Number(newNode.lon),
-      demand: Number(newNode.demand)
+      demand: Number(newNode.demand),
     };
-    
+
     onAdd(node);
     setNewNode({ ...newNode, name: '' });
   };
 
   return (
-    <section style={{marginBottom: '32px'}}>
-      <div className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
-        <h2 style={{margin: 0}}>📍 Locations</h2>
-        <span className={`toggle-icon ${!isCollapsed ? 'open' : ''}`}>▼</span>
-      </div>
-      
-      <div className={`collapsible-content ${isCollapsed ? 'collapsed' : ''}`}>
-        <form className="node-form" onSubmit={handleSubmit}>
-        <input 
-          placeholder="Location Name" 
-          value={newNode.name} 
-          onChange={e => setNewNode({...newNode, name: e.target.value})} 
-        />
-        <select 
-          value={newNode.type} 
-          onChange={e => setNewNode({...newNode, type: e.target.value as NodeType})}
-        >
-          <option value="CUSTOMER">Customer</option>
-          <option value="WAREHOUSE">Warehouse</option>
-          <option value="DEPOT">Depot</option>
-        </select>
-        <input 
-          type="number" step="0.001" placeholder="Lat" 
-          value={newNode.lat} 
-          onChange={e => setNewNode({...newNode, lat: Number(e.target.value)})} 
-        />
-        <input 
-          type="number" step="0.001" placeholder="Lon" 
-          value={newNode.lon} 
-          onChange={e => setNewNode({...newNode, lon: Number(e.target.value)})} 
-        />
-        <input 
-          type="number" placeholder="Demand" 
-          value={newNode.demand} 
-          onChange={e => setNewNode({...newNode, demand: Number(e.target.value)})} 
-        />
-        <button type="submit" className="btn-primary" style={{marginTop: 0}}>Add Location</button>
-      </form>
+    <section className="workspace-section">
+      <button className="section-toggle" type="button" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span>
+          <strong>Locations</strong>
+          <small>Depots, customers, and warehouses</small>
+        </span>
+        <span className={`toggle-icon ${!isCollapsed ? 'open' : ''}`}>v</span>
+      </button>
 
-      <ul className="list">
-        {nodes.map((node) => (
-          <li key={node.id} className="list-item">
-            <div>
-              <strong>{node.name}</strong>
-              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                Lat: {node.lat.toFixed(3)}, Lon: {node.lon.toFixed(3)} | Demand: {node.demand}
+      <div className={`collapsible-content ${isCollapsed ? 'collapsed' : ''}`}>
+        <form className="node-form form-grid" onSubmit={handleSubmit}>
+          <input
+            placeholder="Location name"
+            value={newNode.name}
+            onChange={e => setNewNode({ ...newNode, name: e.target.value })}
+          />
+          <select
+            value={newNode.type}
+            onChange={e => setNewNode({ ...newNode, type: e.target.value as NodeType })}
+          >
+            <option value="CUSTOMER">Customer</option>
+            <option value="DEPOT">Depot</option>
+            <option value="WAREHOUSE">Warehouse</option>
+          </select>
+          <input
+            type="number"
+            step="0.001"
+            placeholder="Latitude"
+            value={newNode.lat}
+            onChange={e => setNewNode({ ...newNode, lat: Number(e.target.value) })}
+          />
+          <input
+            type="number"
+            step="0.001"
+            placeholder="Longitude"
+            value={newNode.lon}
+            onChange={e => setNewNode({ ...newNode, lon: Number(e.target.value) })}
+          />
+          <input
+            type="number"
+            placeholder="Demand"
+            value={newNode.demand}
+            onChange={e => setNewNode({ ...newNode, demand: Number(e.target.value) })}
+          />
+          <button type="submit" className="btn-primary">Add Location</button>
+        </form>
+
+        <ul className="list">
+          {nodes.map((node) => (
+            <li key={node.id} className="list-item">
+              <div className="list-item-main">
+                <strong>{node.name}</strong>
+                <span>
+                  {node.lat.toFixed(3)}, {node.lon.toFixed(3)} · Demand {node.demand}
+                </span>
               </div>
-            </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-              <span className={`badge badge-${node.type.toLowerCase()}`}>
-                {node.type}
-              </span>
-              <button className="btn-danger" onClick={() => onRemove(node.id)}>×</button>
-            </div>
-          </li>
-        ))}
-      </ul>
+              <div className="list-item-actions">
+                <span className={`badge badge-${node.type.toLowerCase()}`}>{node.type}</span>
+                <button className="btn-icon-danger" onClick={() => onRemove(node.id)} aria-label={`Remove ${node.name}`}>
+                  x
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

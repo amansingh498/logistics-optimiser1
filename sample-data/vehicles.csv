@@ -1,0 +1,7 @@
+id,name,depot_id,capacity,max_range_km
+300,Truck DL-01,100,90,260
+301,Van DL-02,100,55,180
+302,Truck HR-01,101,85,240
+303,Mini Truck HR-02,101,45,150
+304,Truck UP-01,102,80,230
+305,Van UP-02,102,50,170

@@ -20,3 +20,7 @@ backend/engine/build/
 # OS noise
 .DS_Store
 Thumbs.db
+
+prompt.txt
+error.txt
+report.txt

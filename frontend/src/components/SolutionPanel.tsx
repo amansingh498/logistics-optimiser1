@@ -50,7 +50,7 @@ export const SolutionPanel: React.FC<SolutionPanelProps> = ({ solution, nodes, v
             <div key={idx} className="route-card" style={{borderLeft: '4px solid var(--primary)'}}>
               <div className="route-header">
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                  <span style={{fontSize: '1.2rem'}}>🚚</span>
+                  <span className="route-vehicle-badge">VR</span>
                   <div>
                     <div style={{fontSize: '0.9rem', fontWeight: 700}}>{vehicle?.name || `Vehicle ${route.vehicle_id}`}</div>
                     <div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>ID: {route.vehicle_id}</div>

@@ -19,6 +19,29 @@ export interface Vehicle {
   cost_per_km?: number;
 }
 
+export interface ImportedScenarioData {
+  nodes: Node[];
+  vehicles: Vehicle[];
+  warnings: string[];
+}
+
+export interface ValidationSummary {
+  locations: number;
+  depots: number;
+  orders: number;
+  warehouses: number;
+  vehicles: number;
+  total_demand: number;
+  total_capacity: number;
+}
+
+export interface ValidationReport {
+  is_valid: boolean;
+  errors: string[];
+  warnings: string[];
+  summary: ValidationSummary;
+}
+
 export interface Edge {
   id: number;
   from_node: number;
