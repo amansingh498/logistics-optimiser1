@@ -33,6 +33,7 @@ function App() {
   const [resultsCollapsed, setResultsCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<'optimize' | 'scenario'>('optimize');
+  const [hasEnteredDemo, setHasEnteredDemo] = useState(false);
   const [matrixStatus, setMatrixStatus] = useState('Road matrix not built yet');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = window.localStorage.getItem('routeforge-theme');
@@ -242,6 +243,95 @@ function App() {
       setLoading(false);
     }
   };
+
+  if (!hasEnteredDemo) {
+    return (
+      <div className="landing-shell" data-theme={theme}>
+        <header className="landing-topbar">
+          <div className="landing-brand">RouteForge</div>
+          <nav className="landing-actions" aria-label="Account actions">
+            <button className="btn-secondary" onClick={() => alert('Sign in is not connected yet. Try the demo workspace for now.')}>
+              Sign In
+            </button>
+            <button className="btn-secondary" onClick={() => alert('Sign up is not connected yet. Try the demo workspace for now.')}>
+              Sign Up
+            </button>
+            <button
+              className="theme-toggle-btn"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              <span className="theme-toggle-icon">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            </button>
+          </nav>
+        </header>
+
+        <main className="landing-scroll">
+          <section className="landing-hero">
+            <div className="landing-map-background" aria-hidden="true">
+              <RouteMap nodes={nodes} vehicles={vehicles} solution={solution} />
+            </div>
+            <div className="landing-hero-overlay"></div>
+            <div className="landing-hero-content">
+              <p className="landing-kicker">Vehicle routing, validation, and dispatch planning</p>
+              <h1>RouteForge</h1>
+              <p>
+                Build delivery scenarios, import fleet data, validate constraints, and optimize routes on a live map.
+              </p>
+              <div className="landing-cta-row">
+                <button className="btn-primary landing-primary-cta" onClick={() => setHasEnteredDemo(true)}>
+                  Try Demo
+                </button>
+                <button className="btn-secondary" onClick={() => setHasEnteredDemo(true)}>
+                  Open Workspace
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="landing-product-band" aria-label="Product capabilities">
+            <div className="landing-metric-strip">
+              <div>
+                <span>Locations</span>
+                <strong>{nodes.length}</strong>
+              </div>
+              <div>
+                <span>Vehicles</span>
+                <strong>{vehicles.length}</strong>
+              </div>
+              <div>
+                <span>Total Demand</span>
+                <strong>{totalDemand.toFixed(0)}</strong>
+              </div>
+              <div>
+                <span>Fleet Capacity</span>
+                <strong>{totalCapacity.toFixed(0)}</strong>
+              </div>
+            </div>
+
+            <div className="landing-feature-grid">
+              <article>
+                <span>Import</span>
+                <h2>CSV and XLSX scenarios</h2>
+                <p>Load depots, orders, and vehicles without rebuilding the scenario by hand.</p>
+              </article>
+              <article>
+                <span>Validate</span>
+                <h2>Constraint checks before solving</h2>
+                <p>Catch missing depots, invalid coordinates, capacity gaps, and vehicle depot issues early.</p>
+              </article>
+              <article>
+                <span>Optimize</span>
+                <h2>Routes on an operational map</h2>
+                <p>Review route order, fleet allocation, distance, load, and feasibility in the demo workspace.</p>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" data-theme={theme}>
